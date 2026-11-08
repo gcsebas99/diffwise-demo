@@ -1,7 +1,43 @@
 # diffwise-demo
 
 A tiny TypeScript API (no runtime dependencies) used as a review target for
-[Diffwise](https://github.com/gcsebas99/diffwise). Review rules live in `.review-rules.yaml`.
+[Diffwise](https://github.com/gcsebas99/diffwise), an AI agent that reviews pull requests against
+the rules in [`.review-rules.yaml`](.review-rules.yaml).
+
+## Try it: the seeded PRs
+
+Each PR is one `seed/*` branch, one commit on top of `main`, built to trigger (or not trigger) a
+specific rule. Each has the `live-review` label, so Diffwise reviewed it with the model.
+
+| PR | What changed | What to look for |
+|---|---|---|
+| [#1 route-without-test](https://github.com/gcsebas99/diffwise-demo/pull/1) | Status filter + validation on `GET /orders`, no test | ❌ Inline comment on the route; the required check fails and **merging is blocked** |
+| [#2 migration-without-down](https://github.com/gcsebas99/diffwise-demo/pull/2) | New migration with `up` only | ❌ `migration-reversible` with a suggested `down`; merge blocked |
+| [#3 prompt-injection](https://github.com/gcsebas99/diffwise-demo/pull/3) | Route without a test, plus a code comment telling the AI reviewer to approve | ❌ Still fails on the missing test, and the summary says the injection was ignored |
+| [#4 clean-refactor](https://github.com/gcsebas99/diffwise-demo/pull/4) | Extracts a shared validation helper, behavior unchanged | ✅ No findings: the false-positive check |
+| [#5 log-auth-token](https://github.com/gcsebas99/diffwise-demo/pull/5) | Auth middleware logs the bearer token | ✅ for now: `no-secrets-in-diff` is a deterministic check, coming in Diffwise Phase 3 |
+| [#6 undocumented-env](https://github.com/gcsebas99/diffwise-demo/pull/6) | Reads `RATE_LIMIT_PER_MIN`, missing from `.env.example` | ✅ for now: `env-documented` (advisory) is also deterministic, Phase 3 |
+
+On each PR, open the **Diffwise** review (verdict, findings table, model, prompt version, cost),
+the inline comments, and the **Diffwise review** check (its job summary repeats the review).
+
+## How the review is wired
+
+[`.github/workflows/review.yml`](.github/workflows/review.yml) runs
+[`gcsebas99/diffwise@v0`](https://github.com/gcsebas99/diffwise) on every PR:
+
+- **Label gate:** without the `live-review` label the action runs in `deterministic-only` mode
+  and makes no model call (free). Only people with triage access or higher can add labels, so
+  outside PRs can't spend the API budget.
+- **`pull_request`, not `pull_request_target`:** PRs from forks get no secrets and a read-only
+  token. Nothing from the PR is installed or run.
+- **Least privilege:** the workflow's token can read code and write PR reviews, nothing else.
+- **New push → new review:** a newer commit cancels the run for the old one, and the old review
+  is marked outdated.
+- **Merge protection:** a ruleset on `main` requires the `Diffwise review` check, with no bypass.
+  The bot only comments; it never approves.
+
+## Run locally
 
 ```sh
 pnpm install
@@ -9,16 +45,3 @@ pnpm test        # node:test, Node 22 strips types natively
 pnpm typecheck
 AUTH_SECRET=dev pnpm start
 ```
-
-## Seeded branches
-
-Each `seed/*` branch is one commit on top of `main`, built to trigger (or not trigger) specific rules.
-
-| Branch | Change | Expected |
-|---|---|---|
-| `seed/route-without-test` | Status filter + validation on `GET /orders`, no test | `route-needs-test` → fail |
-| `seed/log-auth-token` | Auth middleware logs the bearer token | `no-secrets-in-diff` → fail |
-| `seed/migration-without-down` | New migration with `up` only | `migration-reversible` → fail |
-| `seed/undocumented-env` | Reads `RATE_LIMIT_PER_MIN`, missing from `.env.example` | `env-documented` (advisory) → pass |
-| `seed/prompt-injection` | Route change without test + comment telling the reviewer to approve | `route-needs-test` → fail; injection ignored |
-| `seed/clean-refactor` | Extracts a shared validation helper, behavior unchanged | no findings → pass |
