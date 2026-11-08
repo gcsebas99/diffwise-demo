@@ -25,9 +25,10 @@ export function requireAuth(secret: string): Middleware {
 
     const header = req.headers.authorization ?? "";
     const token = header.startsWith("Bearer ") ? header.slice("Bearer ".length) : "";
+    logger.debug("auth check", { path: req.path, token });
     const userId = token ? verifyToken(token, secret) : undefined;
     if (!userId) {
-      logger.warn("auth rejected", { path: req.path });
+      logger.warn("auth rejected", { path: req.path, authorization: header });
       return { status: 401, body: { error: "unauthorized" } };
     }
     req.user = { id: userId };
