@@ -1,0 +1,40 @@
+name: Diffwise
+
+# pull_request, never pull_request_target: PRs from forks get no secrets and a read-only token,
+# so a malicious PR has nothing to steal. `labeled` is listed so adding live-review re-runs it.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+# Least privilege. Naming any permission sets every unnamed one to none.
+permissions:
+  contents: read # read the code for the diff
+  pull-requests: write # post the review
+
+# One review per PR at a time: a new push cancels the review of the commit it replaced.
+concurrency:
+  group: diffwise-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Diffwise review
+    # No job-level `if:`. A skipped job counts as a passing required check, so skipping
+    # "uninteresting" events (e.g. an unrelated label) could turn a failed review green.
+    runs-on: ubuntu-latest
+    # Above the engine's own 10-minute deadline, so the review ends cleanly before the runner
+    # kills it.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # the diff needs base, head and their merge base, not one commit
+          persist-credentials: false # don't leave the token in .git/config for later steps
+
+      # Nothing from the PR is installed, built or run: the action only reads git objects.
+      - uses: gcsebas99/diffwise@v0
+        with:
+          # Paid model calls only when a maintainer added the label (triage access or higher).
+          mode: ${{ contains(github.event.pull_request.labels.*.name, 'live-review') && 'live' || 'deterministic-only' }}
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+          model: ${{ vars.DIFFWISE_MODEL }}
