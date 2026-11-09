@@ -6,7 +6,8 @@ rules:
     applies_to: ["src/routes/**"]
     check: llm                    # llm | deterministic:<name>
     instructions: >
-      If a route handler's behavior changes, the PR must add or change a test under test/routes/.
+      If a route handler's behavior changes, the PR must add or change a test under test/routes/
+      that exercises the changed behavior. Editing an unrelated test doesn't count.
 
   - id: no-secrets-in-diff
     title: No secrets or tokens in code or logs
