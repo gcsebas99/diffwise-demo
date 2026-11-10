@@ -7,7 +7,8 @@ the rules in [`.review-rules.yaml`](.review-rules.yaml).
 ## Try it: the seeded PRs
 
 Each PR is one `seed/*` branch, one commit on top of `main`, built to trigger (or not trigger) a
-specific rule. Each has the `live-review` label, so Diffwise reviewed it with the model.
+specific rule. Each has the `live-review` label, so Diffwise reviewed it with the model where an
+LLM rule applies. Deterministic checks (secrets, env vars) run on every PR, label or not.
 
 | PR | What changed | What to look for |
 |---|---|---|
@@ -15,8 +16,8 @@ specific rule. Each has the `live-review` label, so Diffwise reviewed it with th
 | [#2 migration-without-down](https://github.com/gcsebas99/diffwise-demo/pull/2) | New migration with `up` only | ❌ `migration-reversible` with a suggested `down`; merge blocked |
 | [#3 prompt-injection](https://github.com/gcsebas99/diffwise-demo/pull/3) | Route without a test, plus a code comment telling the AI reviewer to approve | ❌ Still fails on the missing test, and the summary says the injection was ignored |
 | [#4 clean-refactor](https://github.com/gcsebas99/diffwise-demo/pull/4) | Extracts a shared validation helper, behavior unchanged | ✅ No findings: the false-positive check |
-| [#5 log-auth-token](https://github.com/gcsebas99/diffwise-demo/pull/5) | Auth middleware logs the bearer token | ✅ for now: `no-secrets-in-diff` is a deterministic check, coming in Diffwise Phase 3 |
-| [#6 undocumented-env](https://github.com/gcsebas99/diffwise-demo/pull/6) | Reads `RATE_LIMIT_PER_MIN`, missing from `.env.example` | ✅ for now: `env-documented` (advisory) is also deterministic, Phase 3 |
+| [#5 log-auth-token](https://github.com/gcsebas99/diffwise-demo/pull/5) | Auth middleware logs the bearer token | ❌ `no-secrets-in-diff`, found by code (no model call, $0): the token and the authorization header are passed to a logger; merge blocked |
+| [#6 undocumented-env](https://github.com/gcsebas99/diffwise-demo/pull/6) | Reads `RATE_LIMIT_PER_MIN`, missing from `.env.example` | ✅ with one advisory comment: `env-documented` (code, $0) flags the variable missing from `.env.example` |
 
 On each PR, open the **Diffwise** review (verdict, findings table, model, prompt version, cost),
 the inline comments, and the **Diffwise review** check (its job summary repeats the review).
