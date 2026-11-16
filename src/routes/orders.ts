@@ -1,5 +1,6 @@
 import type { Db } from "../db.ts";
 import type { Router } from "../router.ts";
+import { badRequest } from "./validation.ts";
 
 export function registerOrderRoutes(router: Router, db: Db): void {
   router.get("/orders", (req) => {
@@ -10,10 +11,10 @@ export function registerOrderRoutes(router: Router, db: Db): void {
   router.post("/orders", (req) => {
     const input = req.body as { totalCents?: unknown } | undefined;
     if (typeof input?.totalCents !== "number" || !Number.isInteger(input.totalCents)) {
-      return { status: 400, body: { error: "totalCents must be an integer" } };
+      return badRequest("totalCents must be an integer");
     }
     if (input.totalCents <= 0) {
-      return { status: 400, body: { error: "totalCents must be positive" } };
+      return badRequest("totalCents must be positive");
     }
     const order = {
       id: db.nextId("ord"),
