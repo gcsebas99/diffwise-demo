@@ -1,9 +1,17 @@
-import type { Db } from "../db.ts";
+import type { Db, OrderStatus } from "../db.ts";
 import type { Router } from "../router.ts";
+
+const ORDER_STATUSES: OrderStatus[] = ["pending", "paid", "shipped"];
 
 export function registerOrderRoutes(router: Router, db: Db): void {
   router.get("/orders", (req) => {
-    const orders = [...db.orders.values()].filter((o) => o.userId === req.user?.id);
+    const status = req.query.get("status");
+    if (status !== null && !ORDER_STATUSES.includes(status as OrderStatus)) {
+      return { status: 400, body: { error: `status must be one of ${ORDER_STATUSES.join(", ")}` } };
+    }
+    const orders = [...db.orders.values()].filter(
+      (o) => o.userId === req.user?.id && (status === null || o.status === status),
+    );
     return { status: 200, body: { orders } };
   });
 
